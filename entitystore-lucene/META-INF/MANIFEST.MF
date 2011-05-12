@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Lucene Entity Store
+Bundle-SymbolicName: entitystore-lucene;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Vendor: polymap.de
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Require-Bundle: org.polymap.core.qi4j;bundle-version="3.0.0",
+ org.polymap.core.libs;bundle-version="3.0.0"
+Bundle-ClassPath: lib/lucene-core-3.1.0.jar,
+ .
+Export-Package: org.qi4j.entitystore.lucene
+Bundle-ActivationPolicy: lazy
