@@ -1,4 +1,4 @@
-/* 
+/*
  * polymap.org
  * Copyright 2011, Falko Bräutigam, and individual contributors as
  * indicated by the @authors tag.
@@ -48,6 +48,7 @@ import org.qi4j.api.query.grammar.LessThanPredicate;
 import org.qi4j.api.query.grammar.ManyAssociationContainsPredicate;
 import org.qi4j.api.query.grammar.MatchesPredicate;
 import org.qi4j.api.query.grammar.Negation;
+import org.qi4j.api.query.grammar.NotEqualsPredicate;
 import org.qi4j.api.query.grammar.OrderBy;
 import org.qi4j.api.query.grammar.PropertyNullPredicate;
 import org.qi4j.api.query.grammar.PropertyReference;
@@ -59,22 +60,22 @@ import org.qi4j.runtime.value.ValueModel;
 import org.qi4j.spi.property.PropertyType;
 
 /**
- * 
+ *
  *
  * @author <a href="http://www.polymap.de">Falko Braeutigam</a>
  */
 class LuceneQueryParserImpl {
 
     private static Log log = LogFactory.getLog( LuceneQueryParserImpl.class );
-    
+
     private static final Query          ALL = new MatchAllDocsQuery();
-    
-    
+
+
     public Query createQuery( final String resultType, final BooleanExpression whereClause,
             final OrderBy[] orderBySegments ) {
-        
+
         Query filterQuery = processFilter( whereClause );
-        
+
         Query typeQuery = new TermQuery( new Term( "type", resultType ) );
         Query result = null;
         if (!filterQuery.equals( ALL )) {
@@ -89,7 +90,7 @@ class LuceneQueryParserImpl {
         if (orderBySegments != null) {
             throw new UnsupportedOperationException( "Not implemented yet: orderBySegments" );
         }
-        
+
         log.debug( "    LUCENE query: [" + result.toString() + "]" );
         return result;
     }
@@ -144,7 +145,10 @@ class LuceneQueryParserImpl {
         }
         // NOT
         else if (expression instanceof Negation) {
-            throw new UnsupportedOperationException( "NOT expression." );
+            Query arg = processFilter( ((Negation)expression).expression() );
+            BooleanQuery result = new BooleanQuery();
+            result.add( arg, BooleanClause.Occur.MUST_NOT );
+            return result;
         }
         // comparison
         else if (expression instanceof ComparisonPredicate) {
@@ -189,7 +193,7 @@ class LuceneQueryParserImpl {
         BooleanQuery result = new BooleanQuery();
         for (int i=0; i<maxElements; i++) {
             final BooleanQuery valueQuery = new BooleanQuery();
-            
+
             final ValueComposite value = (ValueComposite)valueExpression.value();
             ValueModel valueModel = (ValueModel)ValueInstance.getValueInstance( value ).compositeModel();
             List<PropertyType> actualTypes = valueModel.valueType().types();
@@ -216,7 +220,7 @@ class LuceneQueryParserImpl {
                         // this might not be the selmantics of contains predicate but it is useless
                         // if one cannot do a search without (instead of just a strict match)
                         Query propQuery = null;
-                        if (encodedValue.endsWith( "*" ) 
+                        if (encodedValue.endsWith( "*" )
                                 && StringUtils.countMatches( encodedValue, "*" ) == 1
                                 && StringUtils.countMatches( encodedValue, "?" ) == 0) {
                             propQuery = new PrefixQuery( new Term( fieldname, encodedValue.substring( 0, encodedValue.length()-1 ) ) );
@@ -228,7 +232,7 @@ class LuceneQueryParserImpl {
                         else {
                             propQuery = new TermQuery( new Term( fieldname, encodedValue ) );
                         }
-                        
+
                         valueQuery.add( propQuery, BooleanClause.Occur.MUST );
                     }
                 }
@@ -243,17 +247,24 @@ class LuceneQueryParserImpl {
     protected Query processComparisonPredicate( ComparisonPredicate predicate ) {
         PropertyReference property = predicate.propertyReference();
         String fieldname = property2Fieldname( property );
-        
+
         ValueExpression valueExpression = predicate.valueExpression();
-        
+
         if (valueExpression instanceof SingleValueExpression) {
             String value = ValueCoder.encode(
                     ((SingleValueExpression)valueExpression).value(),
                     property.propertyType() );
-            
-            // equals
+
+            // eq
             if (predicate instanceof EqualsPredicate) {
                 return new TermQuery( new Term( fieldname, value ) );
+            }
+            // neq
+            if (predicate instanceof NotEqualsPredicate) {
+                TermQuery termQuery = new TermQuery( new Term( fieldname, value ) );
+                BooleanQuery result = new BooleanQuery();
+                result.add( termQuery, BooleanClause.Occur.MUST_NOT );
+                return result;
             }
             // ge
             else if (predicate instanceof GreaterOrEqualPredicate) {
@@ -273,10 +284,10 @@ class LuceneQueryParserImpl {
             }
             // matches
             else if (predicate instanceof MatchesPredicate) {
-                return value.endsWith( "*" ) 
+                return value.endsWith( "*" )
                         && StringUtils.countMatches( value, "*" ) == 1
                         && StringUtils.countMatches( value, "?" ) == 0
-                        
+
                         ? new PrefixQuery( new Term( fieldname, value.substring( 0, value.length()-1 ) ) )
                         : new WildcardQuery( new Term( fieldname, value ) );
             }
@@ -291,7 +302,7 @@ class LuceneQueryParserImpl {
 
 
     /**
-     * Build the field name for the Lucene query. 
+     * Build the field name for the Lucene query.
      */
     protected String property2Fieldname( PropertyReference property ) {
 //        Class type = property.propertyType();
@@ -307,7 +318,7 @@ class LuceneQueryParserImpl {
         if (traversedAssoc != null) {
             throw new UnsupportedOperationException( "Traversed association in query. (Property:" + property.propertyName() + ")" );
         }
-        
+
         return prefix + property.propertyName();
     }
 
