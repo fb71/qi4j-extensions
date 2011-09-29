@@ -137,8 +137,8 @@ public class LuceneEntityStoreMixin
         searcher = new IndexSearcher( indexReader ); // read-only=true
         
 //        // listen to model changes
-//        modelListener = new GlobalModelChangeListener() {
-//            public void modelChanged( GlobalModelChangeEvent ev ) {
+//        modelListener = new IModelStoreListener() {
+//            public void modelChanged( ModelStoreEvent ev ) {
 //                if (ev.getEventType() == EventType.commit) {
 //                    try {
 //                        Set<IMap> maps = new HashSet();

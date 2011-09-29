@@ -17,7 +17,6 @@ package org.qi4j.entitystore.lucene;
 
 import org.apache.lucene.document.Document;
 
-import org.qi4j.api.concern.Concerns;
 import org.qi4j.api.mixin.Mixins;
 import org.qi4j.api.service.Activatable;
 import org.qi4j.api.service.ServiceComposite;
@@ -38,7 +37,6 @@ import org.qi4j.spi.entitystore.EntityStore;
  * @see ServiceComposite
  * @see org.qi4j.api.configuration.Configuration
  */
- 
 @Mixins( 
         LuceneEntityStoreMixin.class 
 )

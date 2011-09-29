@@ -4,89 +4,93 @@
  from several maven repositories on the net. See copy.properties for
  general settings. 
  -->
-<project name="entitystore-lucene" 
-        default="build" basedir="." 
-        xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+<project name="org.qi4j.entitystore.lucene" default="build" basedir="." 
+	   xmlns:artifact="antlib:org.apache.maven.artifact.ant"
+	   xmlns:rsel="antlib:org.apache.tools.ant.types.resources.selectors">
+	
 	<description>Download open source jars from the internet.</description>
 
-    <property name="build" value="${basedir}${file.separator}build" />
-    <property name="lib" value="${basedir}${file.separator}lib" />
+	<property name="lib" value="${basedir}${file.separator}lib" />
 	<property name="libs_src_dir" value="${lib}${file.separator}sources" />
 	<property environment="env" />
 	<dirname file="${ant.file.refresh_libs}" property="refresh_libs_basedir" />
 	<property file="${refresh_libs_basedir}${file.separator}copy.properties" />
-    <available property="already_downloaded" type="dir" file="${lib}" />
 
 	<!-- remote repositories as defined in copy.properties -->
-	<artifact:remoteRepository id="central.repository" url="${central}" />
+	<artifact:remoteRepository id="qi4j-official" url="http://repository.ops4j.org/maven2" />
+    <artifact:remoteRepository id="central.repository" url="${central}" />
+
 	<!-- local repository i.e. folder to be used as storage for downloaded library files -->
 	<artifact:localRepository id="local.repository" path="${repo}" />
 
-    <!-- setproxy proxyhost="10.0.16.2" proxyport="3128"/-->
 
-    <target name="build" description="">
-    
-       <jar destfile="${build}/entitystore-lucene.jar">
-            <fileset dir="${build}/eclipse" />
-            <fileset dir="${basedir}" includes="src/**" />
-            <!--fileset dir="${basedir}" includes="lib/lucene*.jar" /-->
-       </jar>
-       <jar destfile="${build}/entitystore-lucene-source.jar">
-            <fileset dir="${basedir}">
-                <exclude name="build/**" />
-                <exclude name="lib/**" />
-            </fileset>
-       </jar>
-    </target>
-	
-    <target name="clean" 
-            description="deletes external libraries folder">
+	<target name="clean" description="deletes external libraries folder">
 		<delete dir="${lib}" />
 	</target>
 
-	<target name="load_m2_deps" unless="already_downloaded">
-		<artifact:dependencies filesetId="dependency.fileset" 
-            sourcesFilesetId="sources.dependency.fileset" 
-            versionsId="dependency.versions" 
-            useScope="runtime">
+
+	<target name="load_m2_deps">
+		<artifact:dependencies 
+                filesetId="dependency.fileset" 
+                sourcesFilesetId="sources.dependency.fileset" 
+                versionsId="dependency.versions" 
+                useScope="runtime">
 
 			<!-- local repository as defined above-->
 			<localRepository refid="local.repository" />
+
+			<remoteRepository refid="qi4j-official" />
 			<remoteRepository refid="central.repository" />
 
+            <!-- dependency groupId="commons-logging" artifactid="commons-logging" version="1.1.1" />
+            <dependency groupId="commons-collections" artifactid="commons-collections" version="3.1" /-->
             <dependency groupId="org.apache.lucene" artifactId="lucene-core" version="3.1.0" />
-
-            <dependency groupId="commons-collections" artifactId="commons-collections" version="3" scope="provided" />
-            <dependency groupId="commons-logging" artifactId="commons-logging" version="1" scope="provided" />
 		</artifact:dependencies>
+        
+		<restrict id="filtered.dependencies">
+            <fileset refid="dependency.fileset"/>
+            <!-- rsel:not>
+              <rsel:or>
+                <rsel:name name="**/commons*.jar"/>
+                <rsel:name name="**/gt-*.jar"/>
+                <rsel:name name="**/imageio-*.jar"/>
+                <rsel:name name="**/geoapi*.jar"/>
+              </rsel:or>
+            </rsel:not-->
+		</restrict>
+
 	</target>
 
-	<target name="print_m2_deps" depends="load_m2_deps">
+
+	<target name="print" depends="load_m2_deps">
 		<description>Print the dependencies the jars</description>
 
+		<!-- setproxy proxyhost="10.0.16.2" proxyport="3128"/-->
+        
 		<path id="jars">
-			<fileset refid="dependency.fileset" />
+			<fileset refid="filtered.dependencies" />
 		</path>
 		<property name="myjars" refid="jars" />
 		<echo message="Jars = ${myjars}" />
-		<!--propertyregex property="listjars"
-		              input="${myjars}"
-		              regexp="\;"
-		              select="{$line.seperator}"
-		              casesensitive="false" /-->
 		<echo message="Jars = ${myjars}" />
 		<echo message="Jars = ${listjars}" />
 	</target>
 
-	<target name="copy_m2_deps" depends="create, load_m2_deps" unless="already_downloaded">
-		<description>Copy the downloaded jars into ${lib} and ${lib_src_dir}.</description>
 
-		<!-- (flat) copy all downloaded JARs (classes) to plugin directory ${lib} -->
+	<target name="build" depends="load_m2_deps">
+		<description>Download the jars - used by a manual "clean"</description>
+		<available property="already_downloaded" type="dir" file="${lib}" />
+
+		<!-- setproxy proxyhost="10.0.16.2" proxyport="3128"/-->
+
+		<antcall target="create" />
+
+		<!-- copy all downloaded JARs (classes) to plugin directory ${lib} -->
 		<copy todir="${lib}" verbose="true" flatten="true">
-			<fileset refid="dependency.fileset" />
+	        <restrict refid="filtered.dependencies" />
 		</copy>
 
-		<!-- (flat) copy downloaded source JARs (sources) to plugin directory ${libs_src_dir} -->
+		<!-- copy downloaded source JARs (sources) to plugin directory ${libs_src_dir} -->
 		<copy todir="${libs_src_dir}" flatten="true" verbose="true">
 			<fileset refid="sources.dependency.fileset" />
 			<chainedmapper>
@@ -94,8 +98,10 @@
 				<globmapper from="*-sources.jar" to="*-sources.zip" />
 			</chainedmapper>
 		</copy>
+
 		<!-- <eclipse.refreshLocal resource="net.refractions.udig.libs/lib" depth="infinite"/>	-->
 	</target>
+
 
 	<target name="create" unless="already_downloaded">
 		<description>creates the lib directory if needed</description>
@@ -103,14 +109,14 @@
 		<mkdir dir="${libs_src_dir}" />
 	</target>
 
-	<!-- 
-     Used by headless build please make sure this does everthing from clean to download and fix etc.. 
-     -->
+
+	<!-- Used by headless build please make sure this does everthing from clean to download and fix etc.. -->
 	<target name="full-build" depends="clean, build" description="clean and build">
 	</target>
 
-	<target name="extSources_to_project_classpath" 
-            description="augments eclipse project .classpath file to link sources to library jars (F3 key)">
+
+	<!-- target: extSources_to_project_classpath (manual Build of project n.r.udig/libs as trigger via ".externalToolBuilders/Refresh Libs.launch") -->
+	<target name="extSources_to_project_classpath" description="augments eclipse project .classpath file to link sources to library jars (F3 key)">
 		<!-- eclipse project .classpath file -->
 		<property name="project_classpath" value="${basedir}${file.separator}.classpath" />
 
